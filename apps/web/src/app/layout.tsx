@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import "./globals.css";
 
 const inter = Inter({
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
   title: "ZerithDB — Build apps with zero backend",
   description:
     "Local-first, peer-to-peer, CRDT-powered browser-native database platform. Build full-stack apps with ZERO backend. The browser is the server.",
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({
@@ -23,6 +25,7 @@ export default function RootLayout({
     <html lang="en" className={inter.variable}>
       <body className="bg-white text-gray-900 font-sans selection:bg-blue-100 selection:text-blue-900">
         {children}
+        <ServiceWorkerRegister />
       </body>
     </html>
   );
