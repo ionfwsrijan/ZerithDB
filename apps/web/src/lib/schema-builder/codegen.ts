@@ -32,9 +32,17 @@ function zodForField(field: SchemaField): string {
       base = "z.boolean()";
       break;
     case "custom":
-      base = field.customType?.trim()
-        ? `z.custom<${toSafeIdentifier(field.customType)}>()`
-        : "z.unknown()";
+      {
+        const custom = field.customType?.trim() ?? "";
+        // Keep common TS type expressions intact (generics/unions/namespaces, etc.)
+        // but avoid emitting obviously-invalid or injectable content.
+        const isValidTypeExpr =
+          custom.length > 0 &&
+          custom.length <= 200 &&
+          !/[\r\n;]/.test(custom);
+
+        base = isValidTypeExpr ? `z.custom<${custom}>()` : "z.unknown()";
+      }
       break;
     default:
       base = "z.unknown()";
@@ -71,7 +79,7 @@ export function generateSchemaArtifacts(nodes: SchemaNode[], edges: SchemaEdge[]
     const schemaName = `${typeName}Schema`;
     const fieldLines = node.fields
       .filter((f) => f.name.trim().length > 0)
-      .map((f) => `  ${JSON.stringify(toSafeIdentifier(f.name))}: ${zodForField(f)},`);
+      .map((f) => `  ${JSON.stringify(f.name.trim())}: ${zodForField(f)},`);
 
     lines.push(`export const ${schemaName} = z.object({`);
     if (fieldLines.length === 0) {
@@ -115,4 +123,3 @@ export function generateSchemaArtifacts(nodes: SchemaNode[], edges: SchemaEdge[]
 
   return { typescript: lines.join("\n") };
 }
-

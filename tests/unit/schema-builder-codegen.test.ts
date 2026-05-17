@@ -26,6 +26,44 @@ describe("schema-builder codegen (MVP)", () => {
     expect(out).toContain("export type Todos = z.infer<typeof TodosSchema>;");
   });
 
+  it("preserves field names as-is in schema keys", () => {
+    const nodes: SchemaNode[] = [
+      {
+        id: "n1",
+        name: "users",
+        x: 0,
+        y: 0,
+        fields: [{ id: "f1", name: "user-id", kind: "string", required: true, array: false }],
+      },
+    ];
+    const out = generateSchemaArtifacts(nodes, []).typescript;
+    expect(out).toContain('"user-id": z.string(),');
+    expect(out).not.toContain('"user_id": z.string(),');
+  });
+
+  it("emits custom type expressions without identifier sanitization", () => {
+    const nodes: SchemaNode[] = [
+      {
+        id: "n1",
+        name: "events",
+        x: 0,
+        y: 0,
+        fields: [
+          {
+            id: "f1",
+            name: "meta",
+            kind: "custom",
+            customType: "Record<string, unknown>",
+            required: true,
+            array: false,
+          },
+        ],
+      },
+    ];
+    const out = generateSchemaArtifacts(nodes, []).typescript;
+    expect(out).toContain("z.custom<Record<string, unknown>>()");
+  });
+
   it("emits relation entries by collection name", () => {
     const nodes: SchemaNode[] = [
       { id: "a", name: "users", x: 0, y: 0, fields: [] },

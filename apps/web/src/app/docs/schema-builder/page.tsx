@@ -48,10 +48,14 @@ export default function SchemaBuilderPage() {
   const [connectFrom, setConnectFrom] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const copyTimeoutRef = useRef<number | null>(null);
+
   const dragRef = useRef<{
     nodeId: string;
-    offsetX: number;
-    offsetY: number;
+    startClientX: number;
+    startClientY: number;
+    startNodeX: number;
+    startNodeY: number;
   } | null>(null);
 
   const selectedNode = useMemo(() => {
@@ -69,12 +73,17 @@ export default function SchemaBuilderPage() {
   useEffect(() => {
     function onMove(e: PointerEvent) {
       if (!dragRef.current) return;
+      const drag = dragRef.current;
+      const dx = e.clientX - drag.startClientX;
+      const dy = e.clientY - drag.startClientY;
       setNodes((prev) =>
         prev.map((n) => {
-          if (n.id !== dragRef.current?.nodeId) return n;
-          const nextX = e.clientX - dragRef.current.offsetX;
-          const nextY = e.clientY - dragRef.current.offsetY;
-          return { ...n, x: clamp(nextX, 0, 2000), y: clamp(nextY, 0, 2000) };
+          if (n.id !== drag.nodeId) return n;
+          return {
+            ...n,
+            x: clamp(drag.startNodeX + dx, 0, 2000),
+            y: clamp(drag.startNodeY + dy, 0, 2000),
+          };
         })
       );
     }
@@ -86,6 +95,15 @@ export default function SchemaBuilderPage() {
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current !== null) {
+        window.clearTimeout(copyTimeoutRef.current);
+        copyTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -118,12 +136,19 @@ export default function SchemaBuilderPage() {
     }
   }
 
-  function onNodePointerDown(e: React.PointerEvent, nodeId: string) {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    dragRef.current = { nodeId, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top };
+  function onNodePointerDown(e: React.PointerEvent, node: SchemaNode) {
+    e.preventDefault();
+    dragRef.current = {
+      nodeId: node.id,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startNodeX: node.x,
+      startNodeY: node.y,
+    };
   }
 
-  function onNodeClick(nodeId: string) {
+  function onNodeClick(e: React.MouseEvent, nodeId: string) {
+    e.stopPropagation();
     if (connectFrom) {
       if (connectFrom === nodeId) return;
       const newEdge: SchemaEdge = {
@@ -141,9 +166,16 @@ export default function SchemaBuilderPage() {
   }
 
   async function copyCode() {
-    await navigator.clipboard.writeText(artifacts.typescript);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
+    try {
+      await navigator.clipboard.writeText(artifacts.typescript);
+      setCopied(true);
+      if (copyTimeoutRef.current !== null) {
+        window.clearTimeout(copyTimeoutRef.current);
+      }
+      copyTimeoutRef.current = window.setTimeout(() => setCopied(false), 1200);
+    } catch {
+      setCopied(false);
+    }
   }
 
   return (
@@ -200,8 +232,11 @@ export default function SchemaBuilderPage() {
 
       <div className="flex-1 grid grid-cols-12 gap-0">
         {/* Canvas */}
-        <div className="col-span-8 border-r border-border relative overflow-hidden bg-muted/30">
-          <svg className="absolute inset-0 w-full h-full pointer-events-none">
+        <div
+          className="col-span-8 border-r border-border relative overflow-hidden bg-muted/30"
+          onClick={() => setSelected({ kind: "none" })}
+        >
+          <svg className="absolute inset-0 w-full h-full">
             {edges.map((e) => {
               const from = nodes.find((n) => n.id === e.from);
               const to = nodes.find((n) => n.id === e.to);
@@ -217,14 +252,24 @@ export default function SchemaBuilderPage() {
                     x2={b.x}
                     y2={b.y}
                     stroke={isSelected ? "rgb(59 130 246)" : "rgb(148 163 184)"}
-                    strokeWidth={isSelected ? 3 : 2}
+                    strokeWidth={isSelected ? 4 : 3}
                     opacity={0.9}
+                    style={{ pointerEvents: "stroke", cursor: "pointer" }}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      setSelected({ kind: "edge", id: e.id });
+                    }}
                   />
                   <text
                     x={(a.x + b.x) / 2}
                     y={(a.y + b.y) / 2 - 6}
                     fontSize="12"
                     fill="rgb(100 116 139)"
+                    style={{ pointerEvents: "auto", cursor: "pointer" }}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      setSelected({ kind: "edge", id: e.id });
+                    }}
                   >
                     {e.label}
                   </text>
@@ -248,8 +293,8 @@ export default function SchemaBuilderPage() {
                         ? "border-blue-500/60"
                         : "border-border"
                   }`}
-                  onPointerDown={(e) => onNodePointerDown(e, n.id)}
-                  onClick={() => onNodeClick(n.id)}
+                  onPointerDown={(e) => onNodePointerDown(e, n)}
+                  onClick={(e) => onNodeClick(e, n.id)}
                 >
                   <div className="px-3 py-2 border-b border-border flex items-center justify-between">
                     <div className="font-semibold text-sm text-foreground truncate">{n.name}</div>
@@ -539,4 +584,3 @@ export default function SchemaBuilderPage() {
     </div>
   );
 }
-
