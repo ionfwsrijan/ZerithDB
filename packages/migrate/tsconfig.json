@@ -12,7 +12,8 @@
     "lib": ["ES2022"],
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "preserveShebang": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]

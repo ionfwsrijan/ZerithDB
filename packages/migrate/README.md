@@ -150,14 +150,23 @@ collection; each child key becomes a document. Arrays are preserved as-is.
 
 ## Importing the Export into ZerithDB
 
-After migration, use the ZerithDB CLI to import the export file:
+After migration, load the export file in your ZerithDB app at startup:
 
-```bash
-npx zerithdb import ./zerithdb-export.json
+```ts
+import { createApp } from "zerithdb-sdk";
+import exportData from "./zerithdb-export.json" assert { type: "json" };
+
+const app = createApp({ appId: "my-app" });
+
+// Seed the local IndexedDB with migrated data
+for (const [collection, docs] of Object.entries(exportData.collections)) {
+  for (const doc of docs) {
+    await app.db(collection).insert(doc);
+  }
+}
 ```
 
-This seeds the local IndexedDB with all migrated data, including proper vector
-clocks so every document is immediately P2P-sync ready.
+All documents include proper vector clocks so they are immediately P2P-sync ready.
 
 ---
 

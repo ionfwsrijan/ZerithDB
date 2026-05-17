@@ -45,40 +45,28 @@ export async function migrateFirebaseRealtime(
   const db = admin.default.database(app);
 
   try {
-    // Read the entire database root
-    const rootSnap = await db.ref("/").get();
-    const rootData = rootSnap.val() as Record<string, unknown> | null;
+    // Read top-level keys first (shallow), then fetch each collection separately.
+    // This avoids loading the entire database into memory at once.
+    const rootSnap = await db.ref("/").get({ shallow: true } as never);
+    const shallowRoot = rootSnap.val() as Record<string, unknown> | null;
 
-    if (!rootData) {
+    if (!shallowRoot) {
       return {};
     }
 
     const result: Record<string, ZerithDocument[]> = {};
-    const topLevelKeys = Object.keys(rootData);
+    const topLevelKeys = Object.keys(shallowRoot);
 
     // Each top-level key is treated as a "collection"
     const collections = filterCollections(topLevelKeys, options);
 
     for (const collection of collections) {
-      const collectionData = rootData[collection];
+      const collectionSnap = await db.ref(collection).get();
+      const collectionData = collectionSnap.val() as Record<string, unknown> | null;
 
-      if (
-        collectionData === null ||
-        typeof collectionData !== "object"
-      ) {
-        onProgress({
-          adapter: "firebase-realtime",
-          collection,
-          processed: 0,
-          total: 0,
-          warning: `Collection "${collection}" is not an object node — skipped.`,
-        });
-        continue;
-      }
+      if (!collectionData) continue;
 
-      const entries = Object.entries(
-        collectionData as Record<string, unknown>
-      );
+      const entries = Object.entries(collectionData);
       const total = entries.length;
       const docs: ZerithDocument[] = [];
       let processed = 0;

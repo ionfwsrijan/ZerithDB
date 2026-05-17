@@ -177,19 +177,33 @@ async function resolveForeignKeys(
   const map = new Map<string, Set<string>>();
 
   try {
+    // Join referential_constraints + constraint_column_usage to get only true
+    // FOREIGN KEY columns AND their referenced table (for _refCollection).
     const { data, error } = await supabase
-      .from("information_schema.key_column_usage")
-      .select("table_name, column_name")
-      .in("table_name", tables)
-      .eq("table_schema", "public");
+      .from("information_schema.referential_constraints")
+      .select(`
+        constraint_name,
+        information_schema.key_column_usage!inner(table_name, column_name),
+        information_schema.constraint_column_usage!inner(table_name)
+      `)
+      .eq("constraint_schema", "public")
+      .in("information_schema.key_column_usage.table_name", tables);
 
     if (error || !data) return map;
 
-    for (const row of data as Array<{ table_name: string; column_name: string }>) {
-      if (!map.has(row.table_name)) {
-        map.set(row.table_name, new Set());
+    for (const row of data as Array<{
+      information_schema: {
+        key_column_usage: { table_name: string; column_name: string };
+        constraint_column_usage: { table_name: string };
+      };
+    }>) {
+      const kcu = row["information_schema"]["key_column_usage"];
+      const referencedTable = row["information_schema"]["constraint_column_usage"].table_name;
+      if (!map.has(kcu.table_name)) {
+        map.set(kcu.table_name, new Set());
       }
-      map.get(row.table_name)!.add(row.column_name);
+      // Store column → referenced table so mapSupabaseType can set _refCollection correctly
+      map.get(kcu.table_name)!.add(kcu.column_name + ":" + referencedTable);
     }
   } catch {
     // Non-fatal — we'll just skip FK resolution

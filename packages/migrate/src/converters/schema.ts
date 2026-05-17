@@ -32,8 +32,12 @@ export function mapSupabaseType(
   if (typeof value === "object") return value;
 
   // Postgres timestamps → ISO-8601 strings
+  // Normalise to UTC explicitly: append Z if no timezone offset present
+  // so JS Date does not silently shift to local timezone.
   if (typeof value === "string" && isPostgresTimestamp(value)) {
-    return new Date(value).toISOString();
+    const hasOffset = /([+-]\d{2}:?\d{2}|Z)$/.test(value);
+    const utcString = hasOffset ? value : value.replace(" ", "T") + "Z";
+    return new Date(utcString).toISOString();
   }
 
   // Booleans, numbers, strings — pass through
@@ -51,12 +55,21 @@ export function flattenFirebaseNode(node: unknown): Record<string, unknown> {
 
   const result: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(node as Record<string, unknown>)) {
-    if (val !== null && typeof val === "object" && !Array.isArray(val)) {
-      // Recursively flatten one level — deeper nesting stays as sub-objects
-      result[key] = val;
-    } else if (Array.isArray(val)) {
-      // Firebase arrays are stored as {0: x, 1: y} objects — normalise back
-      result[key] = val;
+    if (!Array.isArray(val) && val !== null && typeof val === "object") {
+      // Firebase stores arrays as numeric-key objects e.g. {"0": "a", "1": "b"}.
+      // Detect and convert them back to real JS arrays.
+      const entries = Object.entries(val as Record<string, unknown>);
+      const isFirebaseArray =
+        entries.length > 0 &&
+        entries.every(([k]) => /^\d+$/.test(k)) &&
+        entries.map(([k]) => Number(k)).every((n, i) => n === i);
+      if (isFirebaseArray) {
+        result[key] = entries
+          .sort(([a], [b]) => Number(a) - Number(b))
+          .map(([, v]) => v);
+      } else {
+        result[key] = val;
+      }
     } else {
       result[key] = val;
     }
