@@ -92,10 +92,7 @@ describe("convertFirestoreValue", () => {
 
   it("recursively converts nested objects", () => {
     const fakeGeo = { latitude: 1.0, longitude: 2.0 };
-    const result = convertFirestoreValue({ location: fakeGeo }) as Record<
-      string,
-      unknown
-    >;
+    const result = convertFirestoreValue({ location: fakeGeo }) as Record<string, unknown>;
     expect(result.location).toEqual({ lat: 1.0, lng: 2.0 });
   });
 });

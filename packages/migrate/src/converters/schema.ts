@@ -64,9 +64,7 @@ export function flattenFirebaseNode(node: unknown): Record<string, unknown> {
         entries.every(([k]) => /^\d+$/.test(k)) &&
         entries.map(([k]) => Number(k)).every((n, i) => n === i);
       if (isFirebaseArray) {
-        result[key] = entries
-          .sort(([a], [b]) => Number(a) - Number(b))
-          .map(([, v]) => v);
+        result[key] = entries.sort(([a], [b]) => Number(a) - Number(b)).map(([, v]) => v);
       } else {
         result[key] = val;
       }

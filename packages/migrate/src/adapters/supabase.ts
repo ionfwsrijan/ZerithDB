@@ -5,10 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { v4 as uuidv4 } from "uuid";
-import {
-  mapSupabaseType,
-  createZerithDocument,
-} from "../converters/schema.js";
+import { mapSupabaseType, createZerithDocument } from "../converters/schema.js";
 import type {
   SupabaseConfig,
   AdapterOptions,
@@ -25,9 +22,7 @@ export async function migrateSupabase(
   const batchSize = options.batchSize ?? 1000;
 
   const { createClient } = await import("@supabase/supabase-js").catch(() => {
-    throw new Error(
-      "@supabase/supabase-js is not installed. Run: pnpm add @supabase/supabase-js"
-    );
+    throw new Error("@supabase/supabase-js is not installed. Run: pnpm add @supabase/supabase-js");
   });
 
   const supabase = createClient(config.url, config.serviceRoleKey, {
@@ -52,9 +47,7 @@ export async function migrateSupabase(
       throw new Error(`Failed to list tables: ${tableError.message}`);
     }
 
-    tables = (tableData ?? []).map(
-      (row: Record<string, unknown>) => row.table_name as string
-    );
+    tables = (tableData ?? []).map((row: Record<string, unknown>) => row.table_name as string);
   }
 
   tables = filterTables(tables, options);
@@ -95,7 +88,7 @@ export async function migrateSupabase(
     onProgress({ adapter: "supabase", collection: table, processed: 0, total });
 
     // Paginate through the table
-    while (true) {
+    for (;;) {
       const { data: rows, error: fetchError } = await supabase
         .from(table)
         .select("*")
@@ -125,22 +118,20 @@ export async function migrateSupabase(
           }
 
           // Determine the original primary key (prefer "id")
-          const originalId =
-            row["id"] !== undefined ? String(row["id"]) : uuidv4();
+          const originalId = row["id"] !== undefined ? String(row["id"]) : uuidv4();
 
           const createdAt = extractDate(row["created_at"]);
           const updatedAt = extractDate(row["updated_at"]);
 
           const doc = createZerithDocument({
             collection: table,
-            data: convertedData,
+            data: row,
             originalId,
             adapterType: "supabase",
             nodeId,
-            createdAt,
-            updatedAt,
+            ...(createdAt !== undefined ? { createdAt } : {}),
+            ...(updatedAt !== undefined ? { updatedAt } : {}),
           });
-
           docs.push(doc);
         } catch (err) {
           onProgress({
@@ -181,11 +172,13 @@ async function resolveForeignKeys(
     // FOREIGN KEY columns AND their referenced table (for _refCollection).
     const { data, error } = await supabase
       .from("information_schema.referential_constraints")
-      .select(`
+      .select(
+        `
         constraint_name,
         information_schema.key_column_usage!inner(table_name, column_name),
         information_schema.constraint_column_usage!inner(table_name)
-      `)
+      `
+      )
       .eq("constraint_schema", "public")
       .in("information_schema.key_column_usage.table_name", tables);
 

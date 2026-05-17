@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrate } from "../src/migrator.js";
+import path from "node:path";
 
 // ── Mock adapters ─────────────────────────────────────────────────────────────
 
@@ -116,7 +117,7 @@ describe("migrate() — firebase-realtime", () => {
     expect(result.adapter).toBe("firebase-realtime");
     expect(result.totalCollections).toBe(2);
     expect(result.totalDocuments).toBe(2);
-    expect(result.outputPath).toBe(TMP_OUTPUT);
+    expect(result.outputPath).toBe(path.resolve(TMP_OUTPUT));
     expect(result.warnings).toHaveLength(0);
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
   });
@@ -192,9 +193,7 @@ describe("migrate() — warnings collection", () => {
   });
 
   it("collects warnings emitted via onProgress", async () => {
-    const { migrateFirebaseRealtime } = await import(
-      "../src/adapters/firebase-realtime.js"
-    );
+    const { migrateFirebaseRealtime } = await import("../src/adapters/firebase-realtime.js");
 
     (migrateFirebaseRealtime as ReturnType<typeof vi.fn>).mockImplementationOnce(
       async (_config: unknown, _opts: unknown, onProgress: (p: unknown) => void) => {

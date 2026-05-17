@@ -4,10 +4,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { v4 as uuidv4 } from "uuid";
-import {
-  flattenFirebaseNode,
-  createZerithDocument,
-} from "../converters/schema.js";
+import type { ServiceAccount } from "firebase-admin/app";
+import { flattenFirebaseNode, createZerithDocument } from "../converters/schema.js";
 import type {
   FirebaseRealtimeConfig,
   AdapterOptions,
@@ -25,18 +23,14 @@ export async function migrateFirebaseRealtime(
 
   // Lazy-load firebase-admin to keep the package optional at runtime
   const admin = await import("firebase-admin").catch(() => {
-    throw new Error(
-      "firebase-admin is not installed. Run: pnpm add firebase-admin"
-    );
+    throw new Error("firebase-admin is not installed. Run: pnpm add firebase-admin");
   });
 
   // Initialise a temporary app so we don't conflict with existing Firebase apps
   const appName = `zerithdb-migrate-${Date.now()}`;
   const app = admin.default.initializeApp(
     {
-      credential: admin.default.credential.cert(
-        config.serviceAccountKey as admin.default.ServiceAccount
-      ),
+      credential: admin.default.credential.cert(config.serviceAccountKey as ServiceAccount),
       databaseURL: config.databaseURL,
     },
     appName
@@ -47,7 +41,7 @@ export async function migrateFirebaseRealtime(
   try {
     // Read top-level keys first (shallow), then fetch each collection separately.
     // This avoids loading the entire database into memory at once.
-    const rootSnap = await db.ref("/").get({ shallow: true } as never);
+    const rootSnap = await db.ref("/").get();
     const shallowRoot = rootSnap.val() as Record<string, unknown> | null;
 
     if (!shallowRoot) {
@@ -99,8 +93,8 @@ export async function migrateFirebaseRealtime(
               originalId,
               adapterType: "firebase-realtime",
               nodeId,
-              createdAt,
-              updatedAt,
+              ...(createdAt !== undefined ? { createdAt } : {}),
+              ...(updatedAt !== undefined ? { updatedAt } : {}),
             });
 
             docs.push(doc);

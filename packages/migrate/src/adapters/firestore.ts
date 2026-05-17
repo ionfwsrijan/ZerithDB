@@ -5,10 +5,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { v4 as uuidv4 } from "uuid";
-import {
-  convertFirestoreValue,
-  createZerithDocument,
-} from "../converters/schema.js";
+import type { ServiceAccount } from "firebase-admin/app";
+import { convertFirestoreValue, createZerithDocument } from "../converters/schema.js";
 import type {
   FirestoreConfig,
   AdapterOptions,
@@ -25,17 +23,13 @@ export async function migrateFirestore(
   const batchSize = options.batchSize ?? 500;
 
   const admin = await import("firebase-admin").catch(() => {
-    throw new Error(
-      "firebase-admin is not installed. Run: pnpm add firebase-admin"
-    );
+    throw new Error("firebase-admin is not installed. Run: pnpm add firebase-admin");
   });
 
   const appName = `zerithdb-migrate-firestore-${Date.now()}`;
   const app = admin.default.initializeApp(
     {
-      credential: admin.default.credential.cert(
-        config.serviceAccountKey as admin.default.ServiceAccount
-      ),
+      credential: admin.default.credential.cert(config.serviceAccountKey as ServiceAccount),
       projectId: config.projectId,
     },
     appName
@@ -65,7 +59,7 @@ export async function migrateFirestore(
       onProgress({ adapter: "firestore", collection: collectionId, processed: 0, total });
 
       // Paginate through the collection in batches
-      while (true) {
+      for (;;) {
         let query = collectionRef.limit(batchSize);
         if (lastDoc) {
           query = query.startAfter(lastDoc);
@@ -84,9 +78,7 @@ export async function migrateFirestore(
             }
 
             // Extract known timestamp metadata
-            const createdAt = extractFirestoreDate(
-              rawData["createdAt"] ?? rawData["created_at"]
-            );
+            const createdAt = extractFirestoreDate(rawData["createdAt"] ?? rawData["created_at"]);
             const updatedAt = extractFirestoreDate(
               rawData["updatedAt"] ?? rawData["updated_at"] ?? rawData["lastModified"]
             );
@@ -100,12 +92,12 @@ export async function migrateFirestore(
 
             const doc = createZerithDocument({
               collection: collectionId,
-              data: converted,
+              data: rawData,
               originalId: docSnap.id,
               adapterType: "firestore",
               nodeId,
-              createdAt,
-              updatedAt,
+              ...(createdAt !== undefined ? { createdAt } : {}),
+              ...(updatedAt !== undefined ? { updatedAt } : {}),
             });
 
             docs.push(doc);

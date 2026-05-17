@@ -60,9 +60,9 @@ export async function migrate(
   const nodeId = options.nodeId ?? `migration-${uuidv4()}`;
   const adapterOptions: AdapterOptions = {
     nodeId,
-    include: options.include,
-    exclude: options.exclude,
-    batchSize: options.batchSize,
+    ...(options.include !== undefined ? { include: options.include } : {}),
+    ...(options.exclude !== undefined ? { exclude: options.exclude } : {}),
+    ...(options.batchSize !== undefined ? { batchSize: options.batchSize } : {}),
   };
 
   const onProgress = (p: MigrationProgress) => {
@@ -76,27 +76,15 @@ export async function migrate(
 
   switch (source.type) {
     case "firebase-realtime":
-      collections = await migrateFirebaseRealtime(
-        source.config,
-        adapterOptions,
-        onProgress
-      );
+      collections = await migrateFirebaseRealtime(source.config, adapterOptions, onProgress);
       break;
 
     case "firestore":
-      collections = await migrateFirestore(
-        source.config,
-        adapterOptions,
-        onProgress
-      );
+      collections = await migrateFirestore(source.config, adapterOptions, onProgress);
       break;
 
     case "supabase":
-      collections = await migrateSupabase(
-        source.config,
-        adapterOptions,
-        onProgress
-      );
+      collections = await migrateSupabase(source.config, adapterOptions, onProgress);
       break;
 
     default:
@@ -106,10 +94,7 @@ export async function migrate(
   // ── Compute stats ─────────────────────────────────────────────────────────
 
   const totalCollections = Object.keys(collections).length;
-  const totalDocuments = Object.values(collections).reduce(
-    (sum, docs) => sum + docs.length,
-    0
-  );
+  const totalDocuments = Object.values(collections).reduce((sum, docs) => sum + docs.length, 0);
   const durationMs = Date.now() - startTime;
 
   // ── Write output file ─────────────────────────────────────────────────────

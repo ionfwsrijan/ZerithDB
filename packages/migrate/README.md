@@ -1,6 +1,7 @@
 # `zerithdb-migrate`
 
-CLI and programmatic migrator from **Firebase Realtime DB**, **Firestore**, and **Supabase** to **ZerithDB** local-first format.
+CLI and programmatic migrator from **Firebase Realtime DB**, **Firestore**, and **Supabase** to
+**ZerithDB** local-first format.
 
 ---
 
@@ -45,12 +46,12 @@ zerithdb-migrate supabase \
 
 ### Common Options
 
-| Flag | Description | Default |
-|---|---|---|
-| `--output <path>` | Output file path | `./zerithdb-export.json` |
-| `--include <names>` | Comma-separated collections/tables to include | (all) |
-| `--exclude <names>` | Comma-separated collections/tables to exclude | (none) |
-| `--batch-size <n>` | Paginated read batch size | 500 (RTDB/Firestore), 1000 (Supabase) |
+| Flag                | Description                                   | Default                               |
+| ------------------- | --------------------------------------------- | ------------------------------------- |
+| `--output <path>`   | Output file path                              | `./zerithdb-export.json`              |
+| `--include <names>` | Comma-separated collections/tables to include | (all)                                 |
+| `--exclude <names>` | Comma-separated collections/tables to exclude | (none)                                |
+| `--batch-size <n>`  | Paginated read batch size                     | 500 (RTDB/Firestore), 1000 (Supabase) |
 
 ---
 
@@ -69,7 +70,7 @@ const result = await migrate(
   },
   {
     outputPath: "./zerithdb-export.json",
-    include: ["users", "posts"],       // optional: only migrate these tables
+    include: ["users", "posts"], // optional: only migrate these tables
     batchSize: 500,
     onProgress: (p) => {
       console.log(`[${p.collection}] ${p.processed}/${p.total}`);
@@ -94,7 +95,7 @@ The migrator writes a single JSON file with this shape:
   "stats": {
     "totalDocuments": 4200,
     "totalCollections": 8,
-    "durationMs": 3412
+    "durationMs": 3412,
   },
   "collections": {
     "users": [
@@ -107,15 +108,15 @@ The migrator writes a single JSON file with this shape:
         "_migratedFrom": {
           "type": "supabase",
           "originalId": "42",
-          "migratedAt": "2026-05-17T18:00:00.000Z"
+          "migratedAt": "2026-05-17T18:00:00.000Z",
         },
         "data": {
           "name": "Alice",
-          "email": "alice@example.com"
-        }
-      }
-    ]
-  }
+          "email": "alice@example.com",
+        },
+      },
+    ],
+  },
 }
 ```
 
@@ -123,28 +124,28 @@ The migrator writes a single JSON file with this shape:
 
 #### Supabase / PostgreSQL
 
-| Postgres type | ZerithDB representation |
-|---|---|
-| `UUID`, `INTEGER`, `TEXT`, `BOOLEAN` | Native JS value |
-| `TIMESTAMP`, `TIMESTAMPTZ` | ISO-8601 string |
-| `JSONB`, `JSON` | Nested object (pass-through) |
-| `ARRAY` | JavaScript array |
-| Foreign key column (`*_id`) | `{ _ref: "42", _refCollection: "users" }` |
+| Postgres type                        | ZerithDB representation                   |
+| ------------------------------------ | ----------------------------------------- |
+| `UUID`, `INTEGER`, `TEXT`, `BOOLEAN` | Native JS value                           |
+| `TIMESTAMP`, `TIMESTAMPTZ`           | ISO-8601 string                           |
+| `JSONB`, `JSON`                      | Nested object (pass-through)              |
+| `ARRAY`                              | JavaScript array                          |
+| Foreign key column (`*_id`)          | `{ _ref: "42", _refCollection: "users" }` |
 
 #### Firestore
 
-| Firestore type | ZerithDB representation |
-|---|---|
-| `Timestamp` | ISO-8601 string |
-| `GeoPoint` | `{ lat: number, lng: number }` |
+| Firestore type      | ZerithDB representation        |
+| ------------------- | ------------------------------ |
+| `Timestamp`         | ISO-8601 string                |
+| `GeoPoint`          | `{ lat: number, lng: number }` |
 | `DocumentReference` | `{ _ref: "collection/docId" }` |
-| `Bytes` | `{ _bytes: "base64string" }` |
-| `Array`, `Map` | Recursively converted |
+| `Bytes`             | `{ _bytes: "base64string" }`   |
+| `Array`, `Map`      | Recursively converted          |
 
 #### Firebase Realtime DB
 
-The full JSON tree is flattened one level. Each top-level key becomes a
-collection; each child key becomes a document. Arrays are preserved as-is.
+The full JSON tree is flattened one level. Each top-level key becomes a collection; each child key
+becomes a document. Arrays are preserved as-is.
 
 ---
 
@@ -173,17 +174,16 @@ All documents include proper vector clocks so they are immediately P2P-sync read
 ## Architecture Notes
 
 - **Vector clocks** — Every migrated document is assigned an initial vector clock
-  `{ "<migrationNodeId>": 1 }`. This marks it as the genesis revision. When peers
-  sync, they treat it as the base state and increment from there.
+  `{ "<migrationNodeId>": 1 }`. This marks it as the genesis revision. When peers sync, they treat
+  it as the base state and increment from there.
 
 - **Foreign key → document refs** — SQL foreign keys (`user_id → users.id`) become
-  `{ _ref, _refCollection }` objects. ZerithDB's query layer can resolve these
-  locally without a JOIN.
+  `{ _ref, _refCollection }` objects. ZerithDB's query layer can resolve these locally without a
+  JOIN.
 
-- **No data loss** — All original field values are preserved. Timestamps and
-  special types are serialised to portable representations. The `_migratedFrom`
-  field keeps a full audit trail.
+- **No data loss** — All original field values are preserved. Timestamps and special types are
+  serialised to portable representations. The `_migratedFrom` field keeps a full audit trail.
 
-- **Performance** — Reads are paginated in configurable batches. A `cli-progress`
-  multi-bar shows real-time progress per collection. Non-fatal errors per document
-  are collected as warnings rather than aborting the entire migration.
+- **Performance** — Reads are paginated in configurable batches. A `cli-progress` multi-bar shows
+  real-time progress per collection. Non-fatal errors per document are collected as warnings rather
+  than aborting the entire migration.

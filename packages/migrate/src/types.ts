@@ -34,10 +34,7 @@ export interface MigrationSource {
 }
 
 /** Supported source adapters */
-export type AdapterType =
-  | "firebase-realtime"
-  | "firestore"
-  | "supabase";
+export type AdapterType = "firebase-realtime" | "firestore" | "supabase";
 
 /** Options passed to every adapter */
 export interface AdapterOptions {
