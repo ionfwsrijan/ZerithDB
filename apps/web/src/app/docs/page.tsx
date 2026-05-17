@@ -591,6 +591,12 @@ export default function DocsPage() {
           >
             Playground
           </Link>
+          <Link
+            href="/docs/schema-builder"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Schema Builder
+          </Link>
           <a
             href="https://github.com/Zerith-Labs/ZerithDB"
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
