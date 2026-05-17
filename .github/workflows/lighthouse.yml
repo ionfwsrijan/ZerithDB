@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   lighthouse:
-    name: 💡 Lighthouse
+    name: Lighthouse
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

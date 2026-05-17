@@ -174,7 +174,7 @@ describe("DbClient — CollectionClient", () => {
       const tasks = db.collection<{ done: boolean }>("tasks");
       await tasks.insertMany([{ done: true }, { done: false }]);
 
-      // Use a separate client instance for the second collection to avoid 
+      // Use a separate client instance for the second collection to avoid
       // internal Dexie state conflicts during dynamic schema upgrades
       const db2 = new DbClient({ appId: currentAppId });
       const notes = db2.collection<{ text: string }>("notes");
