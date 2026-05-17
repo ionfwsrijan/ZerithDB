@@ -99,7 +99,7 @@ vi.mock("fs-extra", () => ({
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-const TMP_OUTPUT = "/tmp/zerithdb-test-export.json";
+const TMP_OUTPUT = path.resolve("/tmp/zerithdb-test-export.json");
 
 describe("migrate() — firebase-realtime", () => {
   it("returns correct stats for firebase-realtime source", async () => {
