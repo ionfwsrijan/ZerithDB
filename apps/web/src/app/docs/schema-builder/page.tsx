@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Copy, Check, Plus, Link2, Trash2 } from "lucide-react";
 import type { SchemaEdge, SchemaField, SchemaNode } from "@/lib/schema-builder/types";
 import { generateSchemaArtifacts } from "@/lib/schema-builder/codegen";
@@ -58,6 +58,9 @@ export default function SchemaBuilderPage() {
     startNodeY: number;
   } | null>(null);
 
+  const dragRafRef = useRef<number | null>(null);
+  const dragMoveRef = useRef<{ clientX: number; clientY: number } | null>(null);
+
   const selectedNode = useMemo(() => {
     if (selected.kind !== "node") return null;
     return nodes.find((n) => n.id === selected.id) ?? null;
@@ -73,28 +76,44 @@ export default function SchemaBuilderPage() {
   useEffect(() => {
     function onMove(e: PointerEvent) {
       if (!dragRef.current) return;
-      const drag = dragRef.current;
-      const dx = e.clientX - drag.startClientX;
-      const dy = e.clientY - drag.startClientY;
-      setNodes((prev) =>
-        prev.map((n) => {
-          if (n.id !== drag.nodeId) return n;
-          return {
-            ...n,
-            x: clamp(drag.startNodeX + dx, 0, 2000),
-            y: clamp(drag.startNodeY + dy, 0, 2000),
-          };
-        })
-      );
+      dragMoveRef.current = { clientX: e.clientX, clientY: e.clientY };
+      if (dragRafRef.current !== null) return;
+      dragRafRef.current = window.requestAnimationFrame(() => {
+        dragRafRef.current = null;
+        const drag = dragRef.current;
+        const move = dragMoveRef.current;
+        if (!drag || !move) return;
+        const dx = move.clientX - drag.startClientX;
+        const dy = move.clientY - drag.startClientY;
+        setNodes((prev) =>
+          prev.map((n) => {
+            if (n.id !== drag.nodeId) return n;
+            return {
+              ...n,
+              x: clamp(drag.startNodeX + dx, 0, 2000),
+              y: clamp(drag.startNodeY + dy, 0, 2000),
+            };
+          })
+        );
+      });
     }
     function onUp() {
       dragRef.current = null;
+      dragMoveRef.current = null;
+      if (dragRafRef.current !== null) {
+        window.cancelAnimationFrame(dragRafRef.current);
+        dragRafRef.current = null;
+      }
     }
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      if (dragRafRef.current !== null) {
+        window.cancelAnimationFrame(dragRafRef.current);
+        dragRafRef.current = null;
+      }
     };
   }, []);
 
@@ -107,7 +126,7 @@ export default function SchemaBuilderPage() {
     };
   }, []);
 
-  function addNode() {
+  const addNode = useCallback(() => {
     const id = uid("node");
     setNodes((prev) => [
       ...prev,
@@ -120,9 +139,9 @@ export default function SchemaBuilderPage() {
       },
     ]);
     setSelected({ kind: "node", id });
-  }
+  }, []);
 
-  function removeSelected() {
+  const removeSelected = useCallback(() => {
     if (selected.kind === "node") {
       const nodeId = selected.id;
       setNodes((prev) => prev.filter((n) => n.id !== nodeId));
@@ -134,9 +153,9 @@ export default function SchemaBuilderPage() {
       setEdges((prev) => prev.filter((e) => e.id !== edgeId));
       setSelected({ kind: "none" });
     }
-  }
+  }, [connectFrom, selected]);
 
-  function onNodePointerDown(e: React.PointerEvent, node: SchemaNode) {
+  const onNodePointerDown = useCallback((e: React.PointerEvent, node: SchemaNode) => {
     e.preventDefault();
     dragRef.current = {
       nodeId: node.id,
@@ -145,9 +164,10 @@ export default function SchemaBuilderPage() {
       startNodeX: node.x,
       startNodeY: node.y,
     };
-  }
+  }, []);
 
-  function onNodeClick(e: React.MouseEvent, nodeId: string) {
+  const onNodeClick = useCallback(
+    (e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
     if (connectFrom) {
       if (connectFrom === nodeId) return;
@@ -162,10 +182,14 @@ export default function SchemaBuilderPage() {
       setConnectFrom(null);
       return;
     }
-    setSelected({ kind: "node", id: nodeId });
-  }
+    setSelected((prev) =>
+      prev.kind === "node" && prev.id === nodeId ? prev : { kind: "node", id: nodeId }
+    );
+    },
+    [connectFrom]
+  );
 
-  async function copyCode() {
+  const copyCode = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(artifacts.typescript);
       setCopied(true);
@@ -176,7 +200,7 @@ export default function SchemaBuilderPage() {
     } catch {
       setCopied(false);
     }
-  }
+  }, [artifacts.typescript]);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans transition-colors duration-300">
