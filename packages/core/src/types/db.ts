@@ -30,6 +30,7 @@ type QueryFilterValue<T> =
   | { $lte: T }
   | { $in: T[] }
   | { $nin: T[] }
+  | { $exists: boolean }
   | { $regex: RegExp | string };
 
 /**
@@ -37,18 +38,7 @@ type QueryFilterValue<T> =
  * like `_id`, `_createdAt`, and `_updatedAt`.
  */
 export type QueryFilter<T extends Record<string, any>> = {
-  [K in keyof Document<T>]?:
-    | Document<T>[K]
-    | { $eq: Document<T>[K] }
-    | { $ne: Document<T>[K] }
-    | { $gt: Document<T>[K] }
-    | { $gte: Document<T>[K] }
-    | { $lt: Document<T>[K] }
-    | { $lte: Document<T>[K] }
-    | { $in: Document<T>[K][] }
-    | { $nin: Document<T>[K][] }
-    | { $exists: boolean }
-    | { $regex: RegExp | string };
+  [K in keyof Document<T>]?: QueryFilterValue<Document<T>[K]>;
 };
 
 /** Partial update spec — only user-defined fields are modified */
